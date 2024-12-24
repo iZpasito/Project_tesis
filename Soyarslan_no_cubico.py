@@ -2,6 +2,12 @@ from math import sqrt, cos, pi, sin, radians
 from random import uniform as randfloat
 from random import seed as semilla
 import os
+import numpy as np
+from scipy.ndimage import gaussian_filter, binary_dilation
+from stl import mesh
+from skimage import measure
+    
+    
     
 def Formula_mayores(qi,archivo1,epsilon1,fi):
     archivo = open(archivo1, "r")
@@ -35,8 +41,8 @@ def Formula_mayores(qi,archivo1,epsilon1,fi):
                 ID += 1
                 texto = f"{ID} {r[1]} {r[2]} {r[3]} {r[4]}"
                 datos.append(texto)
-            elif valor < epsilon1:
-                valor_mayores1.append(valor)
+            #elif valor < epsilon1:
+            valor_mayores1.append(valor)
     datos[3] = str(ID) + "\n"
     for i in range(0, len(datos)):
         if i<9:
@@ -83,8 +89,8 @@ def Formula_mayores2(qi,archivo1,epsilon1,fi):
                 ID += 1
                 texto = f"{ID} {r[1]} {r[2]} {r[3]} {r[4]}"
                 datos.append(texto)
-            elif valor < epsilon1:
-                valor_mayores2.append(valor)
+            #elif valor < epsilon1:
+            valor_mayores2.append(valor)
     datos[3] = str(ID) + "\n"
     for i in range(0, len(datos)):
         if i<9:
@@ -96,7 +102,6 @@ def Formula_mayores2(qi,archivo1,epsilon1,fi):
     archivo.close()
     nuevo.close()
     return valor_mayores2
-
 
 
 def Formula_menores(qi,archivo1,epsilon1,fi):
@@ -131,8 +136,7 @@ def Formula_menores(qi,archivo1,epsilon1,fi):
                 ID += 1
                 texto = f"{ID} {r[1]} {r[2]} {r[3]} {r[4]}"
                 datos.append(texto)
-            elif  valor < epsilon1:
-                valor_menores1.append(valor)
+            valor_menores1.append(valor)
     datos[3] = str(ID) + "\n"
     for i in range(0, len(datos)):
         if i<9:
@@ -178,8 +182,7 @@ def Formula_menores2(qi,archivo1,epsilon1,fi):
                 ID += 1
                 texto = f"{ID} {r[1]} {r[2]} {r[3]} {r[4]}"
                 datos.append(texto)
-            elif valor < epsilon1:
-                valor_menores2.append(valor)
+            valor_menores2.append(valor)
     datos[3] = str(ID) + "\n"
     for i in range(0, len(datos)):
         if i<9:
@@ -248,9 +251,9 @@ def aleacion(archivo1, nombre_resultante, nombre_variables):
 def calcular_con_operadores(permutaciones2, valor_x2, valor_y2, valor_z2, operador_menor):
     # Filtra las tuplas según el operador menor
     if operador_menor == "<":
-        resultado = [p for p in permutaciones2 if p[0] <= valor_x2 and p[1] <= valor_y2 and p[2] <= valor_z2]
+        resultado = [p for p in permutaciones2 if p[0] <= valor_x2 and abs(p[1]) <= valor_y2 and p[2] <= valor_z2]
     elif operador_menor == ">":
-        resultado = [p for p in permutaciones2 if p[0] >= valor_x2 and p[1] >= valor_y2 and p[2] >= valor_z2]
+        resultado = [p for p in permutaciones2 if p[0] >= valor_x2 and abs(p[1]) >= valor_y2 and p[2] >= valor_z2]
     else:
         raise ValueError("Operador mayor no válido. Use '<','>'")
 
@@ -263,7 +266,7 @@ def calcular_con_operadores(permutaciones2, valor_x2, valor_y2, valor_z2, operad
     # Si los resultados están vacíos, devuelve [(0, 0, 0)]
 
 
-def numerosiniciales(H,H2,nombre_variables,valor_x,valor_y,valor_z,simbolo):
+def numerosiniciales(H,H2,nombre_variables,valor_x,valor_y,valor_z,simbolo): ##INICIAL NUMBER H = SQRT(X^2+Y^2+Z^2)
     x = y = z = 0
     permutaciones=[]
     semilla(2)
@@ -278,73 +281,126 @@ def numerosiniciales(H,H2,nombre_variables,valor_x,valor_y,valor_z,simbolo):
                     permutaciones.append((x,y,z))
 
 
-    variables = open("results/"+nombre_variables+"1_.log", "a")
+    variables = open("results/"+nombre_variables+".log", "a")
     random_seed = "Random Seed: "+str(2)+"\n"
     variables.write(random_seed)
     variables.close()
     n_permutaciones = calcular_con_operadores(permutaciones,valor_x,valor_y,valor_z,simbolo)
     return n_permutaciones
 
+def hybrid_function(archivo1, value1, value2, epsilon1, epsilon2, tipo):
+    with open(archivo1, "r") as archivo:
+        cont_valores = 0
+        values_maxmin = []
+        valor_x1 = []
+        datos = []
+        incremental = 0
 
-def funcion_prueba(archivo1,permutaciones,permutaciones2,epsilon1,epsilon2,fi,fi1):             
-    archivo = open(archivo1, "r")
-    cont_valores=0
-    values_maxmin=[]
-    valor_x1 = []
-    for val in archivo:
-        cont_valores+= 1
-        if cont_valores == 6:
-            values_maxmin.append(val.rstrip("\n").split(" "))
-        if cont_valores > 9:
-            valor_x1.append((val.rstrip("\n").split(" ")))
-    valor_l = float(values_maxmin[0][1]) -  float(values_maxmin[0][0])
+        # Leer el archivo y extraer los valores
+        for val in archivo:
+            cont_valores += 1
+            if cont_valores == 4:
+                val_atom = int(val.strip())  # Número de átomos
+            if cont_valores in [6, 7, 8]:
+                values_maxmin.append([float(v) for v in val.rstrip("\n").split()])
+            if cont_valores < 10:
+                datos.append(val)
+            if cont_valores > 9:
+                valor_x1.append([float(x) for x in val.rstrip("\n").split()[2:5]])  # Extraer las coordenadas x, y, z
 
-    Xmin = float(values_maxmin[0][0])
-    Xmax = float(values_maxmin[0][1])
+        print("Número de átomos:", val_atom)
 
-    valor_Lambda = F_prime(valor_x1,Xmin,Xmax,valor_l)
-    mayor1=Formula_mayores(permutaciones,archivo1,epsilon1,fi)
-    mayor2=Formula_mayores2(permutaciones2,archivo1,epsilon2,fi1)
-    # Inicializar F_prima acumulado
-    F_prima_total = 0
-    #print(valor_Lambda)
-    # Recorrer los valores de lambda
-    min_length = min(len(valor_Lambda), len(mayor1), len(mayor2))
+        # Recorrer cada átomo (líneas a partir de la línea 10)
+        valor_xminmax = values_maxmin[0][1] - values_maxmin[0][0]
 
-    # Recorrer hasta la longitud mínima
-    for i in range(min_length):
-        valor = valor_Lambda[i][2]  # Obtener el valor normalizado (S_x o F_x)
-        F_prima = valor * mayor1[i] + (1 - valor) * mayor2[i]  # Calcular F_prima
-        F_prima_total += F_prima  # Acumular el resultado
+        vertices_validos = []
+        with open("process_files/F_prime_result.dump", "w") as archivo_salida:
+            # Escribir los datos iniciales al archivo de salida
+            for dato in datos:
+                archivo_salida.write(dato)
 
-    return F_prima_total
+            # Iterar sobre cada átomo
+            for i in range(val_atom):
+                coordenadas = valor_x1[i]  # Extraer las coordenadas como lista de floats
+                # Calcular F_prima usando value1 y value2
+                #valor = lambda x: (x / valor_xminmax) if valor_xminmax != 0 else 0.5
+                valor = lambda x: (x / valor_xminmax) + 1/2
+                ponderacion = valor(coordenadas[0])
+                F_prima = ponderacion * value1[i] + (1 - ponderacion) * value2[i]
 
-def F_prime(x, Xmin, Xmax, l):
-    normalized_list = []
+                # Evaluar si F_prima cumple la condición para incrementar según el tipo
+                cumple_condicion = False
+                if tipo == 1:  # F1 = < y F2 = <
+                    if F_prima > epsilon1 and F_prima > epsilon2:
+                        cumple_condicion = True
+                elif tipo == 2:  # F1 = > y F2 = <
+                    if F_prima < epsilon1 and F_prima > epsilon2:
+                        cumple_condicion = True
+                elif tipo == 3:  # F1 = < y F2 = >
+                    if F_prima > epsilon1 and F_prima < epsilon2:
+                        cumple_condicion = True
+                elif tipo == 4:  # F1 = > y F2 = >
+                    if F_prima < epsilon1 and F_prima < epsilon2:
+                        cumple_condicion = True
 
-    for item in x:
-        normalized_value = 0 if float(item[2]) <= Xmin else (
-            1 if float(item[2]) >= Xmax else 0  
-        )
+                if cumple_condicion:
+                    archivo_salida.write(f"{incremental} 1 {coordenadas[0]:.3f} {coordenadas[1]:.3f} {coordenadas[2]:.3f}\n")
+                    incremental += 1
+                    vertices_validos.append(coordenadas)
 
-        normalized_item = [
-            item[0],  # ID (sin normalización)
-            item[1],  # Type (sin normalización)
-        ]
-        
-        # Calcular s_x o f_x según el valor de normalized_value
-        if normalized_value == 0:
-            # Aplicar la fórmula cuando F(x) = 0
-            s_x = abs(Xmax - float(item[2])) / l if l != 0 else 0
-            normalized_item.append(s_x)  # Dividir por l
-        elif normalized_value == 1:
-            # Aplicar la fórmula cuando F(x) = 1
-            f_x = abs(float(item[2]) - Xmin) / l if l != 0 else 0
-            normalized_item.append(f_x)
-        # Agregar el ítem normalizado a la nueva lista
-        normalized_list.append(normalized_item)
-    
-    return normalized_list
+        # Actualizar el número total de átomos en la línea correspondiente
+        with open("process_files/F_prime_result.dump", "r+") as archivo_salida:
+            archivo_salida_lines = archivo_salida.readlines()
+            archivo_salida_lines[3] = f"{incremental}\n"
+            archivo_salida.seek(0)
+            archivo_salida.writelines(archivo_salida_lines)
+
+    print("Incremental final:", incremental)
+
+    # Generar archivo STL usando numpy-stl solo con los vértices que cumplen la condición
+    if len(vertices_validos) < 4:
+        print("No hay suficientes vértices válidos para generar un STL.")
+        return
+    vertices = np.array(vertices_validos)
+
+    # Crear una matriz 3D que represente el volumen a partir de los puntos
+    grid_size = 100  # Ajustar según la densidad de puntos deseada
+    volume = np.zeros((grid_size, grid_size, grid_size), dtype=np.float32)
+
+    # Normalizar las coordenadas a la grilla
+    min_coords = np.min(vertices, axis=0)
+    max_coords = np.max(vertices, axis=0)
+    norm_vertices = ((vertices - min_coords) / (max_coords - min_coords) * (grid_size - 1)).astype(int)
+    norm_vertices = np.clip(norm_vertices, 0, grid_size - 1)  # Asegurar que los puntos estén dentro de los límites
+
+    # Marcar los puntos en el volumen
+    for v in norm_vertices:
+        volume[v[0], v[1], v[2]] = 1.0
+
+    volume[0, :, :] = 0
+    volume[-1, :, :] = 0
+    volume[:, 0, :] = 0
+    volume[:, -1, :] = 0
+    volume[:, :, 0] = 0
+    volume[:, :, -1] = 0
+
+    # Aplicar un suavizado al volumen para hacerlo más continuo
+    volume = gaussian_filter(volume, sigma=1.0)
+
+    # Usar Marching Cubes para crear una malla a partir del volumen
+    verts, faces, _, _ = measure.marching_cubes(volume, level=0.5)
+
+    # Crear el objeto de malla STL usando numpy-stl
+    nanopore_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+    for i, face in enumerate(faces):
+        for j in range(3):
+            nanopore_mesh.vectors[i][j] = verts[face[j]]
+    # Guardar el archivo STL
+    nanopore_mesh.save('results/F_prime_result.stl')
+    print(".STL generado correctamente!")
+
+
+
 
 
 def nocubicos(a,b,c,alpha,beta,gama):
@@ -369,11 +425,11 @@ def funcion_app(archivo1, epsilon1,epsilon2, simbolo1,simbolo2, valor_permutacio
     fi = crear_fi(permutaciones)
     permutaciones2 = numerosiniciales(sqrt(valor_permutacionesE2),valor_permutacionesE2, nombre_variables2,value_x2,value_y2,value_z2,simbolo2)
     fi1 = crear_fi(permutaciones2)
-    if permutaciones == []:
+    if permutaciones == [] or permutaciones == [0,0,0]:
         error = "Error in Permutations\nThere is no combination for:\n"+str(valor_permutacionesE1)+" = x^2 + y^2 + z^2"
         error = "Error in Permutations\nThere is no combination for:\n"+str(valor_permutacionesE2)+" = x^2 + y^2 + z^2"
         return ("Permutations",error)
-    elif permutaciones2 == []:
+    elif permutaciones2 == [] or permutaciones2 == [0,0,0]:
         error = "Error in Permutations\nThere is no combination for:\n"+str(valor_permutacionesE1)+" = x^2 + y^2 + z^2"
         error = "Error in Permutations\nThere is no combination for:\n"+str(valor_permutacionesE2)+" = x^2 + y^2 + z^2"
         return ("Permutations",error)
@@ -382,53 +438,58 @@ def funcion_app(archivo1, epsilon1,epsilon2, simbolo1,simbolo2, valor_permutacio
             if simbolo1 == "<" and simbolo2 == "<":
                 try:
                     print("F1 = < ---- F2 = <")
-                    #mayor1=Formula_mayores(permutaciones,archivo1,epsilon1,fi)
-                    #mayor2=Formula_mayores2(permutaciones2,archivo1,epsilon2,fi1)
-                    lambda_ = funcion_prueba(archivo1,permutaciones,permutaciones2,epsilon1,epsilon2,fi,fi1)
-                    print(lambda_)
+                    type=1
+                    mayor1=Formula_mayores(permutaciones,archivo1,epsilon1,fi)
+                    mayor2=Formula_mayores2(permutaciones2,archivo1,epsilon2,fi1)
+                    hybrid_function(archivo1, mayor1,mayor2, epsilon1, epsilon2,type)
                     #F_prima = lambda_ * mayor1 + (1 - lambda_) * mayor2
 
                 except:
                     return("File 1","Error in File 1\nIncorrect Format")
                 aleacion("file1.dump",nombre_resultante,nombre_variables)
                 aleacion("file2.dump",nombre_resultante2,nombre_variables2)
+                aleacion("F_prime_result.dump",'F_prime_result.dump','F_prime_result')
+                
                 return("Complete","The file has been created successfully.\nResults saved in the 'results' folder.")
             elif simbolo1 == ">" and simbolo2 == "<":
                 try:
                     print("F1 = > ---- F2 = <")
-                    print(permutaciones,"datosmenores2")
-                    print(permutaciones2,"datos_mayores")
-                    Formula_menores(permutaciones,archivo1,epsilon1,fi)
-                    Formula_mayores2(permutaciones2,archivo1,epsilon2,fi1)
+                    type=2
+                    menor1 = Formula_menores(permutaciones,archivo1,epsilon1,fi)
+                    mayor2= Formula_mayores2(permutaciones2,archivo1,epsilon2,fi1)
+                    hybrid_function(archivo1, menor1,mayor2, epsilon1, epsilon2,type)
+                except:
+                    return("File 1","Error in File 1\nIncorrect Format")
+                aleacion("file1.dump",nombre_resultante,nombre_variables)
+                aleacion("file2.dump",nombre_resultante2,nombre_variables2)
+                aleacion("F_prime_result.dump",'F_prime_result.dump','F_prime_result')
+                return("Complete","The file has been created successfully.\nResults saved in the 'results' folder.")
+            elif simbolo1 == "<" and simbolo2 == ">":
+                try:
+                    print("F1 = < ---- F2 = >")
+                    type=3
+                    mayor1=Formula_mayores(permutaciones,archivo1,epsilon1,fi)
+                    menor2=Formula_menores2(permutaciones2,archivo1,epsilon2,fi1)
+                    hybrid_function(archivo1, mayor1,menor2, epsilon1, epsilon2,type)
 
                 except:
                     return("File 1","Error in File 1\nIncorrect Format")
                 aleacion("file1.dump",nombre_resultante,nombre_variables)
                 aleacion("file2.dump",nombre_resultante2,nombre_variables2)
-                return("Complete","The file has been created successfully.\nResults saved in the 'results' folder.")
-            elif simbolo1 == "<" and simbolo2 == ">":
-                try:
-                    print("F1 = < ---- F2 = >")
-                    print(permutaciones,"datosmenores2")
-                    print(permutaciones2,"datos_mayores")
-                    Formula_mayores(permutaciones,archivo1,epsilon1,fi)
-                    Formula_menores2(permutaciones2,archivo1,epsilon2,fi1)
-                except:
-                    return("File 1","Error in File 1\nIncorrect Format")
-                aleacion("file1.dump",nombre_resultante,nombre_variables)
-                aleacion("file2.dump",nombre_resultante2,nombre_variables2)
+                aleacion("F_prime_result.dump",'F_prime_result.dump','F_prime_result')
                 return("Complete","The file has been created successfully.\nResults saved in the 'results' folder.")
             elif simbolo1 == ">" and simbolo2 == ">":
                 try:
                     print("F1 = > ---- F2 = >")
-                    print(permutaciones,"datosmenores2")
-                    print(permutaciones2,"datos_mayores")
-                    Formula_menores(permutaciones,archivo1,epsilon1,fi)
-                    Formula_menores2(permutaciones2,archivo1,epsilon2,fi1)
+                    type=4
+                    menor1=Formula_menores(permutaciones,archivo1,epsilon1,fi)
+                    menor2=Formula_menores2(permutaciones2,archivo1,epsilon2,fi1)
+                    hybrid_function(archivo1, mayor1,menor2, epsilon1, epsilon2,type)
                 except:
                     return("File 1","Error in File 1\nIncorrect Format")
                 aleacion("file1.dump",nombre_resultante,nombre_variables)
                 aleacion("file2.dump",nombre_resultante2,nombre_variables2)
+                aleacion("F_prime_result.dump",'F_prime_result.dump','F_prime_result')
                 return("Complete","The file has been created successfully.\nResults saved in the 'results' folder.")
         except:
             return("Error in the Program")
